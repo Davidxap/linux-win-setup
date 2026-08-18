@@ -1,0 +1,11 @@
+# ============================================================================
+#  gaming-fedora.txt — Gaming stack for Fedora.
+#  Used by stage "gaming". Requires RPM Fusion nonfree (enabled in "repos").
+# ============================================================================
+
+steam
+steam-devices
+gamemode
+mangohud
+openrgb
+openrgb-udev-rules

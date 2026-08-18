@@ -1,0 +1,7 @@
+[Unit]
+Description=Re-aplica GPU en 'high' si bajo de nivel
+DefaultDependencies=no
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c "for c in /sys/class/drm/card*/device/power_dpm_force_performance_level; do l=$(cat \"$c\" 2>/dev/null); if [ \"$l\" != \"high\" ]; then echo high > \"$c\" 2>/dev/null; fi; done"

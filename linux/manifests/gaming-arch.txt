@@ -1,0 +1,9 @@
+# ============================================================================
+#  gaming-arch.txt — Gaming stack for Arch.
+#  OpenRGB comes from the AUR (install with your helper, e.g. paru/yay).
+# ============================================================================
+
+steam
+mangohud
+gamemode
+lib32-gamemode

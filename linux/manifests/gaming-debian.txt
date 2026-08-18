@@ -1,0 +1,9 @@
+# ============================================================================
+#  gaming-debian.txt — Gaming stack for Debian/Ubuntu.
+# Steam ships from the non-free repo as steam-installer (enabled by the "repos" stage).
+# ============================================================================
+
+steam-installer
+gamemode
+mangohud
+# openrgb -- Debian bookworm ships it only in unstable; install via official .deb if needed.

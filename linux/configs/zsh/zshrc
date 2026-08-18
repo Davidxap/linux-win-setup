@@ -1,0 +1,178 @@
+# ============================================================================
+#  .zshrc — Daily-driver zsh configuration (zsh + starship + tmux setup).
+#
+#  Highlights (every tool is detected before use, safe on any distro):
+#    - starship prompt (Catppuccin Mocha)
+#    - zsh-autosuggestions  → grey suggestions, accept with Right arrow
+#    - zsh-syntax-highlighting: GREEN command = installed, RED = missing
+#    - zoxide (z / zi) for smart cd · fzf (Ctrl+R / Ctrl+T / Alt+C)
+#    - Modern aliases: ls=eza, cat=bat, ff=fd, rgf=rg --files
+#    - command-not-found handler that suggests the package to install
+#    - User runtimes on PATH: uv, fnm, pnpm, cargo, ~/.local/bin, opencode
+# ============================================================================
+
+# -------------------- Options / history -------------------------
+setopt AUTO_CD
+setopt AUTO_PUSHD
+setopt EXTENDED_GLOB
+setopt HIST_IGNORE_ALL_DUPS
+setopt HIST_IGNORE_SPACE
+setopt HIST_SAVE_NO_DUPS
+setopt SHARE_HISTORY
+
+HISTFILE="${ZDOTDIR:-$HOME}/.zsh_history"
+HISTSIZE=5000
+SAVEHIST=5000
+
+# No automatic greeting on launch. `fastfetch` stays installed and can be run
+# manually whenever you want the system summary (logo + info).
+unsetopt PROMPT_CR 2>/dev/null
+
+# -------------------- Missing-command handler -------------------
+# Painted red while you type; if you run it anyway, this suggests the distro
+# package that provides the command.
+command_not_found_handler() {
+    local cmd="$1"
+    if command -v dnf >/dev/null 2>&1; then
+        local pkg
+        pkg="$(dnf -q provides "*/bin/$cmd" 2>/dev/null | grep -m1 -oE '^[a-zA-Z0-9_.+-]+' || true)"
+        if [[ -n "$pkg" ]]; then
+            print -P "%F{red}✗%f '$cmd' is not installed. Try:  %F{green}sudo dnf install $pkg%f"
+            return 127
+        fi
+    fi
+    if command -v apt-get >/dev/null 2>&1 && command -v apt-file >/dev/null 2>&1; then
+        local pkg
+        pkg="$(apt-file search --regexp "/$cmd\$" 2>/dev/null | head -1 | cut -d: -f1 || true)"
+        if [[ -n "$pkg" ]]; then
+            print -P "%F{red}✗%f '$cmd' is not installed. Try:  %F{green}sudo apt install $pkg%f"
+            return 127
+        fi
+    fi
+    print -P "%F{red}✗%f '$cmd' does not exist."
+    return 127
+}
+
+# -------------------- Helper: source first existing file --------
+_lws_source_first() {
+    local f
+    for f in "$@"; do
+        [[ -f "$f" ]] && { source "$f"; return 0; }
+    done
+    return 1
+}
+
+# -------------------- starship prompt ---------------------------
+if command -v starship >/dev/null 2>&1; then
+    eval "$(starship init zsh)"
+fi
+
+# -------------------- zsh-autosuggestions -----------------------
+# Grey suggestions as you type; Right arrow (or Ctrl+F) accepts them.
+if [[ -n "${ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE:-}" ]]; then
+    ZSH_AUTOSUGGEST_HIGHLIGHT_STYLE="fg=626880"
+fi
+_lws_source_first \
+    /usr/share/zsh-autosuggestions/zsh-autosuggestions.zsh \
+    /usr/share/zsh/plugins/zsh-autosuggestions/zsh-autosuggestions.zsh
+bindkey '^[[C' autosuggest-accept 2>/dev/null
+
+# -------------------- zsh-syntax-highlighting -------------------
+# GREEN command = installed, RED = unknown; Catppuccin Frappe palette.
+typeset -A ZSH_HIGHLIGHT_STYLES
+ZSH_HIGHLIGHT_STYLES[command]=fg=a6d189
+ZSH_HIGHLIGHT_STYLES[alias]=fg=a6d189
+ZSH_HIGHLIGHT_STYLES[builtin]=fg=a6d189
+ZSH_HIGHLIGHT_STYLES[function]=fg=a6d189
+ZSH_HIGHLIGHT_STYLES[precommand]=fg=ca9ee6
+ZSH_HIGHLIGHT_STYLES[reserved-word]=fg=ca9ee6
+ZSH_HIGHLIGHT_STYLES[unknown-token]=fg=e78284
+ZSH_HIGHLIGHT_STYLES[global-alias]=fg=a6d189
+ZSH_HIGHLIGHT_STYLES[commandseparator]=fg=f4b8e4
+ZSH_HIGHLIGHT_STYLES[single-hyphen-option]=fg=8caaee
+ZSH_HIGHLIGHT_STYLES[double-hyphen-option]=fg=8caaee
+ZSH_HIGHLIGHT_STYLES[back-quoted-argument]=fg=f4b8e4
+ZSH_HIGHLIGHT_STYLES[path]=fg=c6d0f5,underline
+ZSH_HIGHLIGHT_STYLES[path_prefix]=fg=8caaee
+ZSH_HIGHLIGHT_STYLES[single-quoted-argument]=fg=e5c890
+ZSH_HIGHLIGHT_STYLES[double-quoted-argument]=fg=e5c890
+ZSH_HIGHLIGHT_STYLES[dollar-double-quoted-argument]=fg=ef9f76
+ZSH_HIGHLIGHT_STYLES[comment]=fg=626880
+ZSH_HIGHLIGHT_STYLES[default]=fg=c6d0f5
+_lws_source_first \
+    /usr/share/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh \
+    /usr/share/zsh/plugins/zsh-syntax-highlighting/zsh-syntax-highlighting.zsh
+
+# -------------------- User runtimes ----------------------------
+# fnm (Node version manager, user-local install)
+if [[ -x "$HOME/.local/share/fnm/fnm" ]]; then
+    export PATH="$HOME/.local/share/fnm:$PATH"
+    eval "$(fnm env)"
+fi
+
+# opencode (installed by the setup in ~/.opencode/bin)
+export PATH="$HOME/.opencode/bin:$PATH"
+
+# pnpm (portable install path)
+export PNPM_HOME="$HOME/.local/share/pnpm"
+export PATH="$PNPM_HOME:$PATH"
+
+# cargo (Rust)
+[[ -x "$HOME/.cargo/bin/cargo" ]] && export PATH="$HOME/.cargo/bin:$PATH"
+
+# local user binaries
+export PATH="$HOME/.local/bin:$PATH"
+
+# -------------------- Smart navigation --------------------------
+# zoxide: 'z <dir>' jumps to frequent/recent dirs, 'zi' is interactive
+if command -v zoxide >/dev/null 2>&1; then
+    eval "$(zoxide init zsh)"
+fi
+
+# fzf: Ctrl+T files / Ctrl+R history / Alt+C cd
+if command -v fzf >/dev/null 2>&1; then
+    _lws_source_first \
+        /usr/share/fzf/shell/key-bindings.zsh \
+        /usr/share/fzf/key-bindings.zsh \
+        /usr/share/doc/fzf/examples/key-bindings.zsh
+    _lws_source_first \
+        /usr/share/fzf/shell/completion.zsh \
+        /usr/share/fzf/completion.zsh \
+        /usr/share/doc/fzf/examples/completion.zsh
+    export FZF_DEFAULT_OPTS='--height 40% --layout=reverse --border --cycle'
+fi
+
+# -------------------- Modern aliases -----------------------------
+# Only defined when the new tool is present; safe fallbacks otherwise.
+if command -v eza >/dev/null 2>&1; then
+    alias ls='eza --icons --group-directories-first'
+    alias l='eza -lg --icons --group-directories-first --git'
+    alias ll='eza -l  --icons --group-directories-first --git'
+    alias la='eza -la --icons --group-directories-first --git'
+    alias lt='eza -l --tree --icons --level=2'
+else
+    alias ls='ls --color=auto --group-directories-first'
+    alias l='ls -l'
+    alias ll='ls -l'
+    alias la='ls -la'
+    alias lt='ls -R'
+fi
+
+if command -v bat >/dev/null 2>&1; then
+    alias cat='bat'
+    alias catp='bat --plain'
+fi
+if command -v fd >/dev/null 2>&1; then
+    alias ff='fd'
+elif command -v fdfind >/dev/null 2>&1; then
+    alias ff='fdfind'
+fi
+if command -v rg >/dev/null 2>&1; then
+    alias rgf='rg --files'
+fi
+
+# tmux: handy alias with a nice name (respects your config)
+if command -v tmux >/dev/null 2>&1; then
+    alias t='tmux'
+    alias ta='tmux attach'
+fi

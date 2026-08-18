@@ -1,0 +1,21 @@
+# ============================================================================
+#  wsl-debian.txt — Minimal toolset for WSL (Debian/Ubuntu base).
+#  Used by wsl/setup-wsl.sh: only the tools that make WSL pleasant,
+#  with no systemd services, no GPU tuning, no desktop packages.
+# ============================================================================
+
+fish
+# eza — not in Debian 12 (bookworm); trixie/backports/Ubuntu 24.04
+# eza
+bat
+fd-find
+fzf
+zoxide
+ripgrep
+git
+gh
+# fastfetch — not in Debian 12 (bookworm); bookworm-backports/trixie/Ubuntu 24.04
+# fastfetch
+python3
+python3-pip
+build-essential

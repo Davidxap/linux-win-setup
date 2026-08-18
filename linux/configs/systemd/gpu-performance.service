@@ -1,0 +1,15 @@
+[Unit]
+Description=Fijar GPU AMD en alto rendimiento (evita stutter/freeze en Wayland/KDE)
+DefaultDependencies=no
+After=sysinit.target
+Before=graphical.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c "for c in /sys/class/drm/card*/device/power_dpm_force_performance_level; do echo high > \"$c\" 2>/dev/null; done"
+ExecStartPost=/bin/sh -c "for c in /sys/class/drm/card*/device/power_dpm_force_performance_level; do echo high > \"$c\" 2>/dev/null; done"
+ExecStop=/bin/sh -c "for c in /sys/class/drm/card*/device/power_dpm_force_performance_level; do echo auto > \"$c\" 2>/dev/null; done"
+
+[Install]
+WantedBy=sysinit.target

@@ -1,0 +1,65 @@
+# ============================================================================
+#  base-arch.txt — Base packages for Arch (pacman).
+#  Used by stage "packages".
+# ============================================================================
+
+# Shell & terminal
+fish
+kitty
+
+# System info banner
+fastfetch
+
+# Modern CLI replacements
+eza
+bat
+fd
+fzf
+zoxide
+ripgrep
+
+# Version control + GitHub CLI
+git
+github-cli
+
+# Fonts (Nerd variant ships the glyphs used by the fish/kitty themes)
+ttf-jetbrains-mono-nerd
+
+# Editors
+kwrite
+neovim
+
+# Media / codecs
+ffmpeg
+gst-plugins-base
+gst-plugins-good
+gst-plugins-bad
+gst-plugins-ugly
+gst-libav
+
+# Archives
+
+p7zip
+unrar
+
+# File manager
+ranger
+
+# Networking
+wpa_supplicant
+iwd
+
+# Hardware sensors
+lm_sensors
+
+# GPU detection (used by Ollama to auto-detect the GPU)
+pciutils
+
+# Python toolchain
+python
+python-pip
+
+# Docker engine (native)
+docker
+docker-buildx
+docker-compose

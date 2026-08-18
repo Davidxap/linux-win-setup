@@ -1,0 +1,87 @@
+# ============================================================================
+#  starship.toml — Catppuccin Mocha prompt (zsh + starship setup).
+#  Minimal but polished: colored directory, git info, a per-session symbol
+#  and a clean default layout that plays well with tmux.
+# ============================================================================
+
+add_newline = true
+command_timeout = 1000
+
+# ── Left side ─────────────────────────────────────────────────────────────
+format = """
+$username$hostname\
+$directory\
+$git_branch$git_status\
+$package$python$nodejs$rust\
+$cmd_duration\
+$line_break\
+$character"""
+
+# ── Prompt character ──────────────────────────────────────────────────────
+[character]
+success_symbol = "[❯](bold #89b4fa)"
+error_symbol   = "[❯](bold #f38ba8)"
+vicmd_symbol   = "[❮](bold #a6adc8)"
+
+# ── User / host (only shows when not the default user) ─────────────────────
+[username]
+show_always = false
+style_user   = "bold #89b4fa"
+style_root   = "bold #f38ba8"
+format       = "[$user]($style) "
+[hostname]
+ssh_only = true
+style    = "bold #a6e3a1"
+format   = "@[$hostname]($style) "
+
+# ── Directory ──────────────────────────────────────────────────────────────
+[directory]
+style         = "bold #89b4fa"
+read_only     = " 󰌾"
+truncation_length = 3
+format        = "[$path]($style)[$read_only]($read_only_style)"
+
+# ── Git ────────────────────────────────────────────────────────────────────
+[git_branch]
+symbol        = " "
+style         = "bold #a6e3a1"
+format        = "on [$symbol$branch(:$remote_branch)]($style) "
+[git_status]
+style         = "bold #f9e2af"
+format        = "([$all_status$ahead_behind] )($style)"
+conflicted    = "= "
+ahead         = "⇡${count}"
+behind        = "⇣${count}"
+diverged      = "⇕${count}"
+
+# ── Toolchain segments ─────────────────────────────────────────────────────
+[python]
+symbol        = " "
+style         = "bold #89b4fa"
+format        = "via [$symbol$version]($style) "
+[nodejs]
+symbol        = " "
+style         = "bold #a6e3a1"
+format        = "via [$symbol$version]($style) "
+[rust]
+symbol        = " "
+style         = "bold #f9e2af"
+format        = "via [$symbol$version]($style) "
+[package]
+symbol        = " "
+style         = "bold #f9e2af"
+
+# ── Command duration ───────────────────────────────────────────────────────
+[cmd_duration]
+min_time = 2000
+show_milliseconds = false
+style    = "dimmed #a6adc8"
+format   = "took [$duration]($style) "
+
+# ── Right side ─────────────────────────────────────────────────────────────
+right_format = "$time"
+[time]
+disabled = false
+format   = "[$time]($style)"
+time_format = "%H:%M"
+style    = "dimmed #a6adc8"

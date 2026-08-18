@@ -1,0 +1,69 @@
+# ============================================================================
+#  base-debian.txt — Base packages for Debian/Ubuntu variants (apt).
+#
+#  Used by stage "packages". Names differ slightly from Fedora/Arch:
+#    - fd is named `fd-find` on Debian
+#    - kitty is available in the official repos
+#    - docker engine lives in a separate repo (see "repos" stage)
+# ============================================================================
+
+# Shell & terminal
+fish
+kitty
+
+# System info banner
+# fastfetch — NOT in Debian 12 (bookworm): install via bookworm-backports
+# (`apt install -t bookworm-backports fastfetch`) or use Debian trixie / Ubuntu 24.04.
+# fastfetch
+
+# Modern CLI replacements
+# eza — NOT in Debian 12 (bookworm): available in Debian trixie / Ubuntu 24.04,
+# or via bookworm-backports (`apt install -t bookworm-backports eza`).
+# eza
+bat
+fd-find
+fzf
+zoxide
+ripgrep
+
+# Version control + GitHub CLI
+git
+gh
+
+# Fonts used by the kitty config
+fonts-jetbrains-mono
+
+# Editors
+kwrite
+neovim
+
+# Media / codecs
+ffmpeg
+libavcodec-extra
+gstreamer1.0-plugins-base
+gstreamer1.0-plugins-good
+gstreamer1.0-plugins-bad
+gstreamer1.0-plugins-ugly
+gstreamer1.0-libav
+
+# Archives
+
+p7zip-full
+unrar-free
+
+# File manager
+ranger
+
+# Networking
+wireless-tools
+wpasupplicant
+
+# Hardware sensors
+lm-sensors
+
+# GPU detection (used by Ollama to auto-detect the GPU)
+pciutils
+
+# Python toolchain
+python3
+python3-pip

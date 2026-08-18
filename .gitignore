@@ -1,0 +1,21 @@
+# OS junk
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# Editor
+*.swp
+*.swo
+*~
+.vscode/
+.idea/
+
+# Secrets (never commit credentials)
+*.key
+*.pem
+.env
+secrets/
+
+# config-script runtime
+config-script-state*
+*.log

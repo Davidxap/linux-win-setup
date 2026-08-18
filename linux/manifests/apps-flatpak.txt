@@ -1,0 +1,31 @@
+# ============================================================================
+#  apps-flatpak.txt — Desktop applications installed from Flathub.
+#
+#  Same list across all distros — Flatpak is the sandboxed, auto-updating
+#  package manager that works everywhere. Edit this file to customize what
+#  gets installed for your own taste.
+#
+#  Format: <flatpak ID>  # description (comment ignored)
+# ============================================================================
+
+app.zen_browser.zen                    # Browser (no Firefox dependency)
+com.discordapp.Discord                 # Voice / text chat
+com.heroicgameslauncher.hgl            # Heroic Games Launcher (Epic/GOG)
+com.obsproject.Studio                  # OBS Studio (streaming/recording)
+com.spotify.Client                     # Spotify music
+com.stremio.Stremio                    # Movies / series aggregator
+io.github.benjamimgois.goverlay        # GUI overlay for MangoHud settings
+io.github.mimbrero.WhatsAppDesktop     # WhatsApp desktop
+md.obsidian.Obsidian                   # Note-taking (this vault format)
+net.davidotek.pupgui2                  # ProtonUp-Qt (per-game Proton/GL)
+org.gnome.NetworkDisplays              # Cast your screen to a Miracast device
+org.kde.kdenlive                     # Video editor
+org.libreoffice.LibreOffice            # Office suite
+org.sqlitebrowser.sqlitebrowser        # SQLite GUI
+org.telegram.desktop             # Telegram
+org.videolan.VLC                        # Single media player
+app.helios-browser.heidi               # Helios Browser (Firefox-based, privacy-focused)
+org.pdfedit.pdfedit                    # PDF Editor (Flatpak)
+org.qpdf.qpdf                          # PDF Manipulator (Flatpak)
+com.Foxit.FoxitReader                  # Foxit PDF Reader (Flatpak)
+org.pdfshuffler.pdfshuffler            # PDF Shuffler (Flatpak)
