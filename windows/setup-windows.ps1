@@ -13,13 +13,17 @@
 #
 #  Usage:
 #    powershell -ExecutionPolicy Bypass -File windows\setup-windows.ps1
+#    powershell -ExecutionPolicy Bypass -File windows\setup-windows.ps1 -All
+#    powershell -ExecutionPolicy Bypass -File windows\setup-windows.ps1 -Stages "1,3,5"
 #    powershell -ExecutionPolicy Bypass -File windows\setup-windows.ps1 -DryRun
 #    powershell -ExecutionPolicy Bypass -File windows\setup-windows.ps1 -Revert
 # ============================================================================
 
 param(
     [switch]$DryRun,
-    [switch]$Revert
+    [switch]$Revert,
+    [switch]$All,
+    [string]$Stages
 )
 
 $ErrorActionPreference = "Stop"
@@ -136,7 +140,8 @@ function Invoke-WithSpinner {
     param(
         [string]$Label,
         [string]$FilePath,
-        [string[]]$Arguments
+        [string[]]$Arguments,
+        [int]$TimeoutSeconds = 900
     )
     $out = Join-Path $env:TEMP "lws.out.txt"
     $err = Join-Path $env:TEMP "lws.err.txt"
@@ -146,8 +151,25 @@ function Invoke-WithSpinner {
         -PassThru -WindowStyle Hidden
     $spin = @('|', '/', '-', '\')
     $i = 0
+    $deadline = (Get-Date).AddSeconds($TimeoutSeconds)
     Write-Host "  $Label " -NoNewline
     while (-not $proc.HasExited) {
+        if ((Get-Date) -gt $deadline) {
+            # Kill the whole process tree - hidden installers can hang forever
+            # (e.g. installers that spawn an elevated/visible child and wait).
+            Stop-Process -Id $proc.Id -Force -ErrorAction SilentlyContinue
+            Get-CimInstance Win32_Process -Filter "ParentProcessId=$($proc.Id)" -ErrorAction SilentlyContinue |
+                ForEach-Object { Stop-Process -Id $_.ProcessId -Force -ErrorAction SilentlyContinue }
+            $proc.WaitForExit()
+            Write-Host ("{0}`b" -f "x") -NoNewline
+            Write-Host ""
+            return @{
+                Code  = -1
+                TimedOut = $true
+                Out   = ((Get-Content $out -ErrorAction SilentlyContinue | Out-String).Trim())
+                Err   = "Timed out after $TimeoutSeconds s (killed)"
+            }
+        }
         if ($UseAnsi) { Write-Host -NoNewline ("{0}`b" -f $spin[$i]) }
         $i = ($i + 1) % 4
         Start-Sleep -Milliseconds 150
@@ -155,9 +177,10 @@ function Invoke-WithSpinner {
     if ($UseAnsi) { Write-Host -NoNewline (" \b") }
     Write-Host ""
     return @{
-        Code = $proc.ExitCode
-        Out  = ((Get-Content $out -ErrorAction SilentlyContinue | Out-String).Trim())
-        Err  = ((Get-Content $err -ErrorAction SilentlyContinue | Out-String).Trim())
+        Code  = $proc.ExitCode
+        TimedOut = $false
+        Out   = ((Get-Content $out -ErrorAction SilentlyContinue | Out-String).Trim())
+        Err   = ((Get-Content $err -ErrorAction SilentlyContinue | Out-String).Trim())
     }
 }
 
@@ -276,12 +299,23 @@ function Test-Installed-Appx {
 # Check via winget (handles winget-managed packages).
 function Test-Installed-Winget {
     param([string]$Id)
-    $r = Invoke-Winget @("list", "--id", $Id, "--accept-source-agreements") -Label "Checking $Id (winget)"
-    if ($r.Out -match "No installed package") { return $false }
+    # Use --exact to avoid fuzzy matches, and verify by parsing the actual
+    # data rows of the table (locale-independent) - NOT by matching the
+    # localized "No installed package" text nor the header line. On Spanish
+    # Windows "No installed package" is translated, which previously made the
+    # script think an app was installed when it was not.
+    $r = Invoke-Winget @("list", "--id", $Id, "--exact", "--accept-source-agreements") -Label "Checking $Id (winget)"
     if ($r.Code -ne 0) { return $false }
-    # Also verify output has actual table data, not just echoed ID.
-    if ($r.Out -match "Id\s+Name") { return $true }  # table header present
-    if ($r.Out -match $Id -and $r.Out.Length -gt ($Id.Length * 3)) { return $true }
+    if ($r.TimedOut) { return $false }
+    # Header row ("Name  Id  Version  Source") and separator dashes are always
+    # printed, even with zero matches. A real data row contains the package Id.
+    $esc = [regex]::Escape($Id)
+    foreach ($line in ($r.Out -split "`r?`n")) {
+        $t = $line.Trim()
+        if ($t -eq "" -or $t -match "^\s*-+\s*$") { continue }
+        if ($t -match "(?i)^\s*(name|nombre)\s+(id|identificador)\s+") { continue }  # header
+        if ($t -match "\b$esc\b") { return $true }
+    }
     return $false
 }
 
@@ -335,6 +369,13 @@ function Get-KnownPaths {
         }
         "*zen*" {
             $paths += "$localAppData\zen-browser"
+        }
+        "*helium*" {
+            $paths += "$localAppData\Programs\Helium"
+            $paths += "$programFiles\Helium"
+        }
+        "*librewolf*" {
+            $paths += "$programFiles\LibreWolf"
         }
         "*spotify*" {
             if (-not $InstallDirs) { $paths += "$appData\Spotify" }
@@ -459,17 +500,19 @@ function Find-Uninstaller {
 }
 
 function Install-Winget {
-    param([string]$Id, [string]$Name)
+    param([string]$Id, [string]$Name, [string]$Source = "winget")
     if ($DryRun) { Write-Dry "winget install --id $Id -e -h"; return }
     if (Test-Installed $Id) {
         Write-Skip $Name
         return
     }
-    $r = Invoke-Winget @(
+    $args = @(
         "install", "--id", $Id,
         "--accept-source-agreements", "--accept-package-agreements",
-        "-e", "-h"
-    ) -Label "Installing $Name"
+        "-e", "-h", "--disable-interactivity"
+    )
+    if ($Source -ne "winget") { $args += "--source", $Source }
+    $r = Invoke-Winget $args -Label "Installing $Name"
     # Decide by real presence, not by exit code: winget can report a failure
     # (or a success) that does not match what actually got installed.
     if (Test-Installed $Id) {
@@ -477,8 +520,88 @@ function Install-Winget {
     } elseif ($r.Code -eq 0) {
         Write-OK $Name
     } else {
-        Write-Fail $Name
+        # winget failed/hung - fall back to a direct download + silent install
+        # so the app still gets installed without winget.
+        if (-not (Install-Fallback $Id $Name)) { Write-Fail $Name }
     }
+}
+
+# Known silent installers used as fallback when winget fails or hangs.
+# Url is downloaded to TEMP, then run with SilentArgs. "ExeCheck" is a search
+# substring used to confirm the installer binary landed as expected.
+$FALLBACK_INSTALLERS = @{
+    "Zen-Team.Zen-Browser" = @{
+        Url        = "https://github.com/zen-browser/desktop/releases/latest/download/zen.installer.exe"
+        SilentArgs = @("/S")
+    }
+    "Brave.Brave" = @{
+        Url        = "https://laptop-updates.brave.com/latest/winx64"
+        SilentArgs = @("/S")
+    }
+    "Spotify.Spotify" = @{
+        Url        = "https://download.scdn.co/SpotifyFullSetupX64.exe"
+        SilentArgs = @()
+    }
+    "Stremio.Stremio" = @{
+        Url        = "https://www.strem.io/download?platform=windows&type=installer"
+        SilentArgs = @("/S")
+    }
+    "ImputNet.Helium" = @{
+        Url        = "https://github.com/imputnet/helium-windows/releases/latest/download/helium_x64-installer.exe"
+        SilentArgs = @("/S")
+    }
+    "Battle-net.App" = @{
+        Url        = "https://www.battle.net/download/getInstallerForGame?os=win&gameProgram=BATTLENET_APP"
+        SilentArgs = @("/S")
+    }
+    "Riot.RiotClient" = @{
+        Url        = "https://install.riotgames.com/installer"
+        SilentArgs = @()
+    }
+}
+
+# Direct download + silent install without winget. Returns $true on success.
+function Install-Fallback {
+    param([string]$Id, [string]$Name)
+    $entry = $FALLBACK_INSTALLERS[$Id]
+    if (-not $entry) { return $false }
+
+    Write-Info "$Name - winget failed, trying direct installer..."
+    $url = $entry.Url
+    $tmp = Join-Path $env:TEMP ("lws-" + ($Id -replace '[^a-zA-Z0-9.]', '') + ".exe")
+    Remove-Item $tmp -ErrorAction SilentlyContinue
+    try {
+        Invoke-WebRequest -Uri $url -OutFile $tmp -UseBasicParsing -TimeoutSec 600
+    } catch {
+        Write-Info "  Download failed for ${Name}: $($_.Exception.Message)"
+        return $false
+    }
+    if (-not (Test-Path $tmp) -or (Get-Item $tmp).Length -lt 1000) {
+        Write-Info "  Downloaded file for $Name looks invalid (size check failed)"
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+        return $false
+    }
+    try {
+        $p = Start-Process -FilePath $tmp -ArgumentList $entry.SilentArgs -PassThru -Wait
+    } catch {
+        Write-Info "  Direct installer failed to start for ${Name}: $($_.Exception.Message)"
+        Remove-Item $tmp -ErrorAction SilentlyContinue
+        return $false
+    }
+    Start-Sleep -Seconds 3
+    Remove-Item $tmp -ErrorAction SilentlyContinue
+    # Give a short grace period then confirm by real presence.
+    $installed = Test-Installed $Id
+    if (-not $installed) {
+        Start-Sleep -Seconds 5
+        $installed = Test-Installed $Id
+    }
+    if ($installed) {
+        Write-OK "$Name (direct installer)"
+        return $true
+    }
+    Write-Info "  Direct installer for $Name finished but app not detected (exit $($p.ExitCode))"
+    return $false
 }
 
 # User-level installer via PowerShell (opencode, Claude Code, ...).
@@ -649,10 +772,10 @@ function Uninstall-Completely {
 
 # Every winget package the setup can install, grouped for the revert flow.
 $REVERT_GROUPS = @(
-    @{ Title = "Browsers";         Ids = @("Zen-Team.Zen-Browser", "Google.Chrome", "Brave.Brave", "Mozilla.Firefox") }
-    @{ Title = "Communications";   Ids = @("Discord.Discord", "Telegram.TelegramDesktop", "WhatsApp.WhatsApp") }
+    @{ Title = "Browsers";         Ids = @("Zen-Team.Zen-Browser", "Google.Chrome", "Brave.Brave", "ImputNet.Helium", "Mozilla.Firefox", "LibreWolf.LibreWolf") }
+    @{ Title = "Communications";   Ids = @("Discord.Discord", "Telegram.TelegramDesktop", "9NKSQGP7F2NH") }
     @{ Title = "Media";            Ids = @("VideoLAN.VLC", "Spotify.Spotify", "Stremio.Stremio", "OBSProject.OBSStudio") }
-    @{ Title = "Productivity";     Ids = @("TheDocumentFoundation.LibreOffice", "Obsidian.Obsidian", "JetBrains.PyCharmCommunity", "DBBrowserForSQLite.DBBrowserForSQLite", "Notion.Notion") }
+    @{ Title = "Productivity";     Ids = @("TheDocumentFoundation.LibreOffice", "Obsidian.Obsidian", "JetBrains.PyCharm", "DBBrowserForSQLite.DBBrowserForSQLite", "Notion.Notion") }
     @{ Title = "Dev tools";        Ids = @("Microsoft.VisualStudioCode", "Anysphere.Cursor", "Google.Antigravity", "Postman.Postman", "Insomnia.Insomnia", "Bitwarden.Bitwarden", "KeePassXCTeam.KeePassXC", "AgileBits.1Password", "GitHub.cli", "Docker.DockerDesktop") }
     @{ Title = "Gaming";           Ids = @("Valve.Steam", "HeroicGamesLauncher.HeroicGamesLauncher", "EpicGames.EpicGamesLauncher", "Battle-net.App", "Riot.RiotClient") }
     @{ Title = "Virtual machines"; Ids = @("Oracle.VirtualBox") }
@@ -665,17 +788,19 @@ $REVERT_NAMES = @{
     "Zen-Team.Zen-Browser"               = "Zen Browser"
     "Google.Chrome"                      = "Google Chrome"
     "Brave.Brave"                        = "Brave Browser"
+    "ImputNet.Helium"                    = "Helium"
     "Mozilla.Firefox"                    = "Firefox"
+    "LibreWolf.LibreWolf"                = "LibreWolf"
     "Discord.Discord"                    = "Discord"
     "Telegram.TelegramDesktop"           = "Telegram"
-    "WhatsApp.WhatsApp"                  = "WhatsApp Desktop"
+    "9NKSQGP7F2NH"                       = "WhatsApp Desktop"
     "VideoLAN.VLC"                       = "VLC"
     "Spotify.Spotify"                    = "Spotify"
     "Stremio.Stremio"                    = "Stremio"
     "OBSProject.OBSStudio"               = "OBS Studio"
     "TheDocumentFoundation.LibreOffice"  = "LibreOffice"
     "Obsidian.Obsidian"                  = "Obsidian"
-    "JetBrains.PyCharmCommunity"         = "PyCharm Community"
+    "JetBrains.PyCharm"                  = "PyCharm"
     "DBBrowserForSQLite.DBBrowserForSQLite" = "DB Browser for SQLite"
     "Notion.Notion"                      = "Notion"
     "Microsoft.VisualStudioCode"         = "VS Code"
@@ -977,22 +1102,25 @@ $browsers = Select-Items "Which browsers do you want to install?" @(
     "Zen (Firefox-based, privacy-focused)"
     "Google Chrome"
     "Brave (Chromium-based)"
-    "Helios (Firefox-based, privacy-focused)"
+    "Helium (Chromium-based, privacy-focused)"
     "Firefox (Mozilla)"
+    "LibreWolf (Firefox fork, privacy)"
 ) @(
     "Zen is the author's daily driver"
     "Proprietary, most extensions"
     "Blocks ads/trackers out of the box"
-    "Firefox-based, privacy-focused"
+    "uBlock Origin built-in, no bloat"
     "Stock open-source browser"
+    "Minimal Firefox fork, no telemetry"
 )
 foreach ($n in $browsers) {
     switch ($n) {
         1 { Install-Winget "Zen-Team.Zen-Browser" "Zen Browser" }
         2 { Install-Winget "Google.Chrome" "Google Chrome" }
         3 { Install-Winget "Brave.Brave" "Brave Browser" }
-        4 { Install-Winget "Helios-Team.Helios" "Helios Browser" }
+        4 { Install-Winget "ImputNet.Helium" "Helium Browser" }
         5 { Install-Winget "Mozilla.Firefox" "Firefox" }
+        6 { Install-Winget "LibreWolf.LibreWolf" "LibreWolf" }
     }
 }
 if ($browsers.Count -eq 0) { Write-Info "No browsers selected - skipped." }
@@ -1026,7 +1154,7 @@ foreach ($n in $comms) {
     switch ($n) {
         1 { Install-Winget "Discord.Discord" "Discord" }
         2 { Install-Winget "Telegram.TelegramDesktop" "Telegram" }
-        3 { Install-Winget "WhatsApp.WhatsApp" "WhatsApp Desktop" }
+        3 { Install-Winget "9NKSQGP7F2NH" "WhatsApp Desktop" "msstore" }
     }
 }
 if ($comms.Count -eq 0) { Write-Info "No communication apps selected - skipped." }
@@ -1063,13 +1191,13 @@ Print-Step "Productivity" "Office, notes, databases (multi-select)"
 $prod = Select-Items "Which productivity apps do you want?" @(
     "LibreOffice (office suite)"
     "Obsidian (notes)"
-    "PyCharm Community (Python IDE)"
+    "PyCharm (Python IDE)"
     "DB Browser for SQLite"
     "Notion (notes & docs)"
 ) @(
     "Free MS-Office-compatible suite"
     "Local markdown notes"
-    "Free Python IDE"
+    "Python IDE (Community features free)"
     "SQLite GUI"
     "All-in-one notes/docs (optional)"
 )
@@ -1077,7 +1205,7 @@ foreach ($n in $prod) {
     switch ($n) {
         1 { Install-Winget "TheDocumentFoundation.LibreOffice" "LibreOffice" }
         2 { Install-Winget "Obsidian.Obsidian" "Obsidian" }
-        3 { Install-Winget "JetBrains.PyCharmCommunity" "PyCharm Community" }
+        3 { Install-Winget "JetBrains.PyCharm" "PyCharm" }
         4 { Install-Winget "DBBrowserForSQLite.DBBrowserForSQLite" "DB Browser for SQLite" }
         5 { Install-Winget "Notion.Notion" "Notion" }
     }

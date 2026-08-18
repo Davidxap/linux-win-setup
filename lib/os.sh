@@ -47,7 +47,7 @@ detect_family() {
     case "$id" in
         fedora|centos|rhel|rocky|almalinux) echo "fedora" ;;
         debian|ubuntu|pop|linuxmint|elementary|kali) echo "debian" ;;
-        arch|endeavouros|manjaro|arcolinux|cachyos) echo "arch" ;;
+        arch|endeavouros|manjaro|arcolinux|cachyos|omarchy) echo "arch" ;;
         *) echo "unknown" ;;
     esac
 }

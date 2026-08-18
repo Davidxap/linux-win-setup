@@ -13,7 +13,7 @@ Arch**, plus **Windows 11 (winget)** and **WSL**.
 | | Linux (Fedora / Debian / Arch) | Windows 11 (winget) | WSL |
 |---|---|---|---|
 | **Shell/Terminal** | kitty + fish or zsh+starship+tmux (ask-first) | PowerShell + WSL option | fish |
-| **Browser** | Zen/Chrome/Brave/Helios (any or all — multi-select) | Zen/Chrome/Brave/**Firefox** (any or all) | — |
+| **Browser** | Zen/Chrome/Brave/Helium (any or all — multi-select) | Zen/Chrome/Brave/Firefox/LibreWolf (any or all) | — |
 | **Apps** | Flatpak (sandboxed apps) | winget + PDF & Doc tools | — |
 | **Gaming** | GameMode + AMD tuning + sysctl | Game DVR off + High power | — |
 | **Dev** | Docker — native engine **or** Docker Desktop (you choose) | Docker Desktop | CLI tools |
@@ -382,7 +382,7 @@ sudo ./setup.sh --help         # usage for the detected platform
 | 3 | **Base packages** | CLI tools, codecs, editors, fonts — from `manifests/base-*.txt` |
 | 4 | **Flatpak apps** | Sandboxed apps from `manifests/apps-flatpak.txt` |
 | 5 | **Terminal** | Explains **why** kitty + fish / zsh+starship+tmux, then asks your preference |
-| 6 | **Browser** | Multi-select: Zen / Chrome / Brave / **Helios** — any or all; Firefox removal only with confirmation |
+| 6 | **Browser** | Multi-select: Zen / Chrome / Brave / **Helium** (native) / **Firefox** / **LibreWolf** — any or all; Firefox removal only with confirmation |
 | 7 | **Gaming** | GameMode, AMD GPU tuning, env vars, sysctl |
 | 8 | **Docker** | Native engine **or** Docker Desktop — you choose at prompt time |
 | 9 | **Extras** | Optional dev/AI tools — multi-select checklist |
@@ -618,7 +618,7 @@ The Windows script is **fully interactive** — every step asks what you want
 and installs only what you pick. Nothing is forced.
 
 1. **System base** — Windows Update + GPU vendor driver (NVIDIA / AMD / Intel), detected automatically.
-2. **Browsers** — multi-select: Zen · Chrome · Brave · **Helios** · **Firefox** (Windows 11 ships with Edge preinstalled, so every option here is an addition or replacement — none is forced). Edge removal is offered separately, never forced.
+2. **Browsers** — multi-select: Zen · Chrome · Brave · **Helium** · **Firefox** · **LibreWolf** (Windows 11 ships with Edge preinstalled, so every option here is an addition or replacement — none is forced). Edge removal is offered separately, never forced.
 3. **Communications** — multi-select: Discord · Telegram · WhatsApp.
 4. **Media** — multi-select: VLC · Spotify · Stremio · OBS.
 5. **Productivity** — multi-select: LibreOffice · Obsidian · PyCharm · DB Browser · Notion.
